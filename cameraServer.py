@@ -1,9 +1,17 @@
 import cscore
-from networktables import NetworkTables
+import ntcore
 import logging
-# Import OpenCV and NumPy
 import cv2
 import numpy as np
+import robotpy_apriltag
+import argparse
+import time
+
+# function that converts an image to grayscale
+def convert(capture):
+    gray = cv2.cvtColor(capture, cv2.COLOR_RGB2GRAY)
+    # show the image in grayscale
+    return gray
 
 def contours(binary_img, min_area=15):
     contour_list, _ = cv2.findContours(binary_img, mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
@@ -42,6 +50,59 @@ def processing(img): #returns and accepts bgr image
 
     return output_img
 
+def aprtags(frame):
+    processed = convert(frame)
+    #cts = contours(processed)
+    #with_labels = draw(frame,  cts)
+    detectionList = det.detect(processed)
+
+    # for loop that detects the corners and position of the apriltags
+    for i in detectionList:
+
+        # decision_margin
+        # ignore anything lower than 35
+        print(i)
+
+        # returns a prebuilt list of python objects
+        detectionList = det.detect(processed)
+
+        # identifying the corners of the apriltag
+        corners = i.getCorners([0]*8)
+        # reshape corners into a 4 by 2 matrix
+        order = np.array(corners).reshape((4,2))
+        # prints the corner points
+        #print(order)
+        # shows the class type (numpy.ndarray)
+        print("Type:", type(order))
+        # shows data type (float64 in this case)
+        print("dtype: ", order.dtype)
+
+        # draw lines from the corner points
+        cv2.line(processed, order[0,:].astype(int), order[1,:].astype(int), (0,0,255), 3)
+        cv2.line(processed, order[1,:].astype(int), order[2,:].astype(int), (0,0,255), 3)
+        cv2.line(processed, order[2,:].astype(int), order[3,:].astype(int), (0,0,255), 3)
+        cv2.line(processed, order[3,:].astype(int), order[0,:].astype(int), (0,0,255), 3)
+
+        # converts float number to int to plot a circle on the corner
+        cv2.circle(processed, (tuple(order[0,:].astype(int))), 8, (255,100,0), 4) # left bottom
+        cv2.circle(processed, (tuple(order[1,:].astype(int))), 8, (255,100,0), 4) # right bottom
+        cv2.circle(processed, (tuple(order[2,:].astype(int))), 8, (255,100,0), 4) # right top
+        cv2.circle(processed, (tuple(order[3,:].astype(int))), 8, (255,100,0), 4) # left top
+
+        #cv2.putText(capture, "ID", tuple(order[1,:].astype(int)), font, 2, (255,200,150), 5, cv2.LINE_AA, False)
+        # AprilTagPoseEstimator
+        #pose = estimator.estimate(det)
+        # Print the estimated pose
+        print("Pose Estimator: ", estimator.estimate(i))
+
+    # shows the image with the circles and lines on
+    cv2.imshow( "Image:", processed)
+
+    '''
+    print("Frame {}: {:.3f} ms".format(fnum, (t_end - t_begin) * 1000.0))
+    fnum = fnum + 1
+    '''
+
 
 def main():
     cs = cscore.CameraServer.getInstance()
@@ -49,34 +110,70 @@ def main():
 
     camera_1 = cscore.UsbCamera(name = 'camera_1', path = '/dev/video0')
     camera_1.setResolution(320,240)
-    # camera_2 = cscore.UsbCamera(name = 'camera_2', path = '/dev/video2')
+    camera_2 = cscore.UsbCamera(name = 'camera_2', path = '/dev/video2')
+    camera_2.setResolution(320,240)
 
     cs.addCamera(camera_1)
-    # cs.addCamera(camera_2)
+    cs.addCamera(camera_2)
 
     # Does not actually send video back to dashboard
     # Creates cvSource object that is used to send frames back
-    outputSource = cs.putVideo('processed',320,240)
+    outputSource1 = cs.putVideo('processed1',320,240)
+    outputSource2 = cs.putVideo('processed1',320,240)
 
     #creates cvSink object that can be used to grab frames
-    outputSink = cs.getVideo(camera=camera_1)
+    outputSink1 = cs.getVideo(camera=camera_1)
+    outputSink2 = cs.getVideo(camera=camera_2)
 
     #pre allocate img for memory
-    img = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
+    img1 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
+    img2 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
 
     while True:
         # Grabs latest frame and sets to img, out returns 0 if error and time if not error
-        out, img = outputSink.grabFrame(img)
+        out, img1 = outputSink1.grabFrame(img1)
 
         if out == 0:
-            print(outputSink.getError())
+            print(outputSink1.getError())
             
             continue
         
-        img = processing(img)
+        img1 = processing(img1)
 
-        outputSource.putFrame(img)
+        outputSource1.putFrame(img1)
+
+
+
+        out, img2 = outputSink2.grabFrame(img2)
+
+        if out == 0:
+            print(outputSink2.getError())
+            
+            continue
+        
+        img2 = aprtags(img2)
+
+        outputSource2.putFrame(img2)
+
+
 
 
 if __name__ == "__main__":
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    #img = cv2.imread('/Users/helenasieh/Desktop/Vision/apriltagrobots_overlay.png')
+
+    print("* Detecting AprilTags...")
+    # creates a detector that runs a detector on the image
+    det = robotpy_apriltag.AprilTagDetector()
+
+    # Copying parameters from the calibration script result
+    fx, fy, cx, cy = (1395.1527042544735, 1391.6280089009383, 639.070620047402, 353.97356161241004)
+    # creates an ApriltagPoseEstimator to calculate the position, angle, distance, etc of apriltag
+    config = robotpy_apriltag.AprilTagPoseEstimator.Config(6, 1395.1527042544735, 1391.6280089009383, 639.070620047402, 353.97356161241004)
+    estimator = robotpy_apriltag.AprilTagPoseEstimator(config)
+
+    # adds a family of apriltags
+    tag = det.addFamily("tag16h5")
+
     main()
