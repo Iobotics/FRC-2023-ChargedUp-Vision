@@ -60,7 +60,7 @@ while not keyPress:
         margin = i.getDecisionMargin()
         print("Decision Margin:", margin)
 
-        if margin > 80:
+        if margin > 60:
             # identifying the corners of the apriltag
             corners = i.getCorners([0]*8)
             # reshape corners into a 4 by 2 matrix
