@@ -54,58 +54,59 @@ def aprtags(frame):
     processed = convert(frame)
     #cts = contours(processed)
     #with_labels = draw(frame,  cts)
+    t_end = time.time()
     detectionList = det.detect(processed)
 
     # for loop that detects the corners and position of the apriltags
     for i in detectionList:
 
-        # decision_margin
-        # ignore anything lower than 35
-        print(i)
-
         # returns a prebuilt list of python objects
         detectionList = det.detect(processed)
 
-        # identifying the corners of the apriltag
-        corners = i.getCorners([0]*8)
-        # reshape corners into a 4 by 2 matrix
-        order = np.array(corners).reshape((4,2))
-        # prints the corner points
-        #print(order)
-        # shows the class type (numpy.ndarray)
-        print("Type:", type(order))
-        # shows data type (float64 in this case)
-        print("dtype: ", order.dtype)
+        # decision_margin
+        # ignore anything lower than 35
+        margin = i.getDecisionMargin()
+        print("Decision Margin:", margin)
 
-        # draw lines from the corner points
-        cv2.line(processed, order[0,:].astype(int), order[1,:].astype(int), (0,0,255), 3)
-        cv2.line(processed, order[1,:].astype(int), order[2,:].astype(int), (0,0,255), 3)
-        cv2.line(processed, order[2,:].astype(int), order[3,:].astype(int), (0,0,255), 3)
-        cv2.line(processed, order[3,:].astype(int), order[0,:].astype(int), (0,0,255), 3)
+        if margin > 60:
+            # identifying the corners of the apriltag
+            corners = i.getCorners([0]*8)
+            # reshape corners into a 4 by 2 matrix
+            order = np.array(corners).reshape((4,2))
+            # prints the corner points
+            #print(order)
+            # shows the class type (numpy.ndarray)
+            print("Type:", type(order))
+            # shows data type (float64 in this case)
+            print("dtype: ", order.dtype)
 
-        # converts float number to int to plot a circle on the corner
-        cv2.circle(processed, (tuple(order[0,:].astype(int))), 8, (255,100,0), 4) # left bottom
-        cv2.circle(processed, (tuple(order[1,:].astype(int))), 8, (255,100,0), 4) # right bottom
-        cv2.circle(processed, (tuple(order[2,:].astype(int))), 8, (255,100,0), 4) # right top
-        cv2.circle(processed, (tuple(order[3,:].astype(int))), 8, (255,100,0), 4) # left top
+            # draw lines from the corner points
+            cv2.line(processed, order[0,:].astype(int), order[1,:].astype(int), (0,0,255), 3)
+            cv2.line(processed, order[1,:].astype(int), order[2,:].astype(int), (0,0,255), 3)
+            cv2.line(processed, order[2,:].astype(int), order[3,:].astype(int), (0,0,255), 3)
+            cv2.line(processed, order[3,:].astype(int), order[0,:].astype(int), (0,0,255), 3)
 
-        #cv2.putText(capture, "ID", tuple(order[1,:].astype(int)), font, 2, (255,200,150), 5, cv2.LINE_AA, False)
-        # AprilTagPoseEstimator
-        #pose = estimator.estimate(det)
-        # Print the estimated pose
-        print("Pose Estimator: ", estimator.estimate(i))
+            # converts float number to int to plot a circle on the corner
+            cv2.circle(processed, (tuple(order[0,:].astype(int))), 8, (255,100,0), 4) # left bottom
+            cv2.circle(processed, (tuple(order[1,:].astype(int))), 8, (255,100,0), 4) # right bottom
+            cv2.circle(processed, (tuple(order[2,:].astype(int))), 8, (255,100,0), 4) # right top
+            cv2.circle(processed, (tuple(order[3,:].astype(int))), 8, (255,100,0), 4) # left top
 
-    # shows the image with the circles and lines on
-    cv2.imshow( "Image:", processed)
+            #cv2.putText(capture, "ID", tuple(order[1,:].astype(int)), font, 2, (255,200,150), 5, cv2.LINE_AA, False)
+            # AprilTagPoseEstimator
+            #pose = estimator.estimate(det)
+            # Print the estimated pose
+            print("Pose Estimator: ", estimator.estimate(i))
 
-    '''
-    print("Frame {}: {:.3f} ms".format(fnum, (t_end - t_begin) * 1000.0))
-    fnum = fnum + 1
-    '''
+        else:
+            # shows the image with the circles and lines on
+            cv2.imshow( "Image:", processed)
+
 
 
 def main():
-    cs = cscore.CameraServer.getInstance()
+    cameraSelected = 0
+    cs = cscore.CameraServer
     cs.enableLogging()
 
     camera_1 = cscore.UsbCamera(name = 'camera_1', path = '/dev/video0')
@@ -118,16 +119,21 @@ def main():
 
     # Does not actually send video back to dashboard
     # Creates cvSource object that is used to send frames back
-    outputSource1 = cs.putVideo('processed1',320,240)
-    outputSource2 = cs.putVideo('processed1',320,240)
+    outputSource = cs.putVideo('processed1',320,240)
 
     #creates cvSink object that can be used to grab frames
     outputSink1 = cs.getVideo(camera=camera_1)
     outputSink2 = cs.getVideo(camera=camera_2)
 
+    mjpegServer = cscore.MjpegServer(name = 'feed',port = 1181)
+    
+    mjpegServer.setSource(outputSource)
+
     #pre allocate img for memory
     img1 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
     img2 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
+
+
 
     while True:
         # Grabs latest frame and sets to img, out returns 0 if error and time if not error
@@ -140,10 +146,6 @@ def main():
         
         img1 = processing(img1)
 
-        outputSource1.putFrame(img1)
-
-
-
         out, img2 = outputSink2.grabFrame(img2)
 
         if out == 0:
@@ -153,7 +155,7 @@ def main():
         
         img2 = aprtags(img2)
 
-        outputSource2.putFrame(img2)
+        outputSource.putFrame(img1 if cameraSelected == 0 else img2)
 
 
 
