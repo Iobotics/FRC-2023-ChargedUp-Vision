@@ -1,5 +1,6 @@
 import cscore
 import ntcore
+import socket
 import logging
 import cv2
 import numpy as np
@@ -50,7 +51,7 @@ def processing(img): #returns and accepts bgr image
 
     return output_img
 
-def aprtags(frame):
+def aprtags(frame,det,estimator):
     processed = convert(frame)
     #cts = contours(processed)
     #with_labels = draw(frame,  cts)
@@ -66,7 +67,8 @@ def aprtags(frame):
         # decision_margin
         # ignore anything lower than 35
         margin = i.getDecisionMargin()
-        print("Decision Margin:", margin)
+        print("No AprilTag Detected...")
+        #print("Decision Margin:", margin)
 
         if margin > 60:
             # identifying the corners of the apriltag
@@ -75,10 +77,6 @@ def aprtags(frame):
             order = np.array(corners).reshape((4,2))
             # prints the corner points
             #print(order)
-            # shows the class type (numpy.ndarray)
-            print("Type:", type(order))
-            # shows data type (float64 in this case)
-            print("dtype: ", order.dtype)
 
             # draw lines from the corner points
             cv2.line(processed, order[0,:].astype(int), order[1,:].astype(int), (0,0,255), 3)
@@ -97,71 +95,14 @@ def aprtags(frame):
             #pose = estimator.estimate(det)
             # Print the estimated pose
             print("Pose Estimator: ", estimator.estimate(i))
-
+            print(estimator.estimate(i).translation())
+            print(estimator.estimate(i).rotation())
         else:
             # shows the image with the circles and lines on
-            cv2.imshow( "Image:", processed)
-
-
+            return processed, estimator.estimate(i)
+    return processed, estimator.estimate(i)
 
 def main():
-    cameraSelected = 0
-    cs = cscore.CameraServer
-    cs.enableLogging()
-
-    camera_1 = cscore.UsbCamera(name = 'camera_1', path = '/dev/video0')
-    camera_1.setResolution(320,240)
-    camera_2 = cscore.UsbCamera(name = 'camera_2', path = '/dev/video2')
-    camera_2.setResolution(320,240)
-
-    cs.addCamera(camera_1)
-    cs.addCamera(camera_2)
-
-    # Does not actually send video back to dashboard
-    # Creates cvSource object that is used to send frames back
-    outputSource = cs.putVideo('processed1',320,240)
-
-    #creates cvSink object that can be used to grab frames
-    outputSink1 = cs.getVideo(camera=camera_1)
-    outputSink2 = cs.getVideo(camera=camera_2)
-
-    mjpegServer = cscore.MjpegServer(name = 'feed',port = 1181)
-    
-    mjpegServer.setSource(outputSource)
-
-    #pre allocate img for memory
-    img1 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
-    img2 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
-
-
-
-    while True:
-        # Grabs latest frame and sets to img, out returns 0 if error and time if not error
-        out, img1 = outputSink1.grabFrame(img1)
-
-        if out == 0:
-            print(outputSink1.getError())
-            
-            continue
-        
-        img1 = processing(img1)
-
-        out, img2 = outputSink2.grabFrame(img2)
-
-        if out == 0:
-            print(outputSink2.getError())
-            
-            continue
-        
-        img2 = aprtags(img2)
-
-        outputSource.putFrame(img1 if cameraSelected == 0 else img2)
-
-
-
-
-if __name__ == "__main__":
-
     font = cv2.FONT_HERSHEY_SIMPLEX
     #img = cv2.imread('/Users/helenasieh/Desktop/Vision/apriltagrobots_overlay.png')
 
@@ -177,5 +118,61 @@ if __name__ == "__main__":
 
     # adds a family of apriltags
     tag = det.addFamily("tag16h5")
+    
+    cameraSelected = 0
+    cs = cscore.CameraServer
+    cs.enableLogging()
+
+    camera_1 = cscore.UsbCamera(name = 'camera_1', dev = 0)
+    camera_1.setResolution(320,240)
+    camera_2 = cscore.UsbCamera(name = 'camera_2', dev = 2)
+    camera_2.setResolution(320,240)
+
+    cs.addCamera(camera_1)
+    cs.addCamera(camera_2)
+
+    # Does not actually send video back to dashboard
+    # Creates cvSource object that is used to send frames back
+    outputSource = cs.putVideo('feed',320,240)
+
+    #creates cvSink object that can be used to grab frames
+    outputSink1 = cs.getVideo(camera=camera_1)
+    outputSink2 = cs.getVideo(camera=camera_2)
+
+    
+    #pre allocate img for memory
+    img1 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
+    img2 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
+    nt = ntcore.NetworkTableInstance.getDefault()
+    nt.setServerTeam(2438)
+    nt.startClient4("temp")
+    sd = nt.getTable("SmartDashboard")
+    
+    while True:
+        # Grabs latest frame and sets to img, out returns 0 if error and time if not error
+        out, img1 = outputSink1.grabFrame(img1)
+
+        if out == 0:
+
+            print(outputSink1.getError())
+            
+            continue
+        
+        img1 = aprtags(img1,det,estimator)
+        
+        #out, img2 = outputSink2.grabFrame(img2)
+
+        #if out == 0:
+        #    print(outputSink2.getError())
+            
+        #    continue
+        
+        #img2 = aprtags(img2)
+        outputSource.putFrame(img1)
+
+
+
+
+if __name__ == "__main__":
 
     main()
