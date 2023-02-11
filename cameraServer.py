@@ -69,7 +69,7 @@ def main():
     cs.enableLogging()
 
     camera_1 = cscore.UsbCamera(name = 'camera_1', dev = 0) # USB camera 
-    camera_1.setResolution(320,240)
+    camera_1.setResolution(1280,960)
     camera_2 = cscore.UsbCamera(name = 'camera_2', dev = 2) # USB camera
     camera_2.setResolution(320,240)
 
@@ -78,7 +78,7 @@ def main():
 
     # Does not actually send video back to dashboard
     # Creates cvSource object that is used to send frames back
-    outputSource = cs.putVideo('feed',320,240)
+    outputSource = cs.putVideo('feed',1280,960)
 
     #creates cvSink object that can be used to grab frames
     outputSink1 = cs.getVideo(camera=camera_1)
@@ -86,12 +86,12 @@ def main():
 
     
     #pre allocate img for memory
-    img1 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
-    img2 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
-    aprimg1 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
-    aprimg2 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
-    yoloimg1 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
-    yoloimg2 = np.zeros(shape=(1280, 960, 3), dtype=np.uint8)
+    img1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    img2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    aprimg1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    aprimg2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    yoloimg1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    yoloimg2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
 
     # img = np.zeros(shape=(6, 1280, 960, 3), dtype=np.uint8)
 
@@ -115,15 +115,16 @@ def main():
     
 
     april = april_detector.AprilDetector((320,240))
-    yolo = openvino_detect.YoloOpenVinoDetector("weights/")
+    yolo = openvino_detect.YoloOpenVinoDetector("/home/team2438/FRC-2023-ChargedUp-Vision/weights/")
     while True:
         # Grabs latest frame and sets to img, out returns 0 if error and time if not error
         out, img1 = outputSink1.grabFrame(img1) # img1 in BGR format
         if out == 0: # skips if cant grab frame
             print(outputSink1.getError())
             continue
-
+	#cv2.resize(img1, (320,240))
         out, aprimg1 = april.detect(cv2.resize(img1, (320,240))) # runs apriltag detector, out is list of all important outputs
+        #aprimg1 = cv2.resize(aprimg1, (320,240))
         if out != 0: 
             print(out)
             translationXPublisher.set(value = out[0])
@@ -134,24 +135,24 @@ def main():
             rotationZPublisher.set(value = out[5])
             tagIDPublisher.set(value = out[6])
         
-        out = yolo.detect(cv2.cvtColor(img1,cv2.COLOR_BGR2RGB))
-        yoloimg1 = img1.copy()
-        if out != 0:
-            for i in out:
-                if i["confidence"] < 0.8:
-                    continue
-                order = i["corners"]
+        #out = yolo.detect(cv2.cvtColor(img1,cv2.COLOR_BGR2RGB))
+        #yoloimg1 = img1.copy()
+        #if out != 0:
+            #for i in out:
+                #if i["confidence"] < 0.8:
+                    #continue
+                #order = i["corners"]
 
-                cv2.line(yoloimg1, order[0,:].astype(int), order[1,:].astype(int), i["color"], 3)
-                cv2.line(yoloimg1, order[1,:].astype(int), order[2,:].astype(int), i["color"], 3)
-                cv2.line(yoloimg1, order[2,:].astype(int), order[3,:].astype(int), i["color"], 3)
-                cv2.line(yoloimg1, order[3,:].astype(int), order[0,:].astype(int), i["color"], 3)
+                #cv2.line(yoloimg1, order[0,:].astype(int), order[1,:].astype(int), i["color"], 3)
+                #cv2.line(yoloimg1, order[1,:].astype(int), order[2,:].astype(int), i["color"], 3)
+                #cv2.line(yoloimg1, order[2,:].astype(int), order[3,:].astype(int), i["color"], 3)
+                #cv2.line(yoloimg1, order[3,:].astype(int), order[0,:].astype(int), i["color"], 3)
 
                 # converts float number to int to plot a circle on the corner
-                cv2.circle(yoloimg1, (tuple(order[0,:].astype(int))), 8, i["color"], 4) # left bottom
-                cv2.circle(yoloimg1, (tuple(order[1,:].astype(int))), 8, i["color"], 4) # right bottom
-                cv2.circle(yoloimg1, (tuple(order[2,:].astype(int))), 8, i["color"], 4) # right top
-                cv2.circle(yoloimg1, (tuple(order[3,:].astype(int))), 8, i["color"], 4) # left top
+                #cv2.circle(yoloimg1, (tuple(order[0,:].astype(int))), 8, i["color"], 4) # left bottom
+                #cv2.circle(yoloimg1, (tuple(order[1,:].astype(int))), 8, i["color"], 4) # right bottom
+                #cv2.circle(yoloimg1, (tuple(order[2,:].astype(int))), 8, i["color"], 4) # right top
+                #cv2.circle(yoloimg1, (tuple(order[3,:].astype(int))), 8, i["color"], 4) # left top
 
 
         # cv2.imshow('f',yoloimg1)

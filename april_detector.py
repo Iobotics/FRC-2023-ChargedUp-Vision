@@ -69,7 +69,7 @@ class AprilDetector:
                 #pose = estimator.estimate(det)
                 translate = self.estimator.estimate(i).translation()
                 rotation = self.estimator.estimate(i).rotation()
-                return [translate.X(),translate.Y(),translate.Z(), rotation.X(),rotation.Y(),rotation.Z(), i.getID()], frame
+                return [translate.X(),translate.Y(),translate.Z(), rotation.X(),rotation.Y(),rotation.Z(), i.getId()], frame
             else:
                 # shows the image with the circles and lines on
                 return 0, frame
