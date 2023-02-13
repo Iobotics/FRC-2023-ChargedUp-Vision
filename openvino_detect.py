@@ -17,10 +17,10 @@ def into2owh(x):
 
 def resize_to_frame(imraw):
     major_dim = np.max(imraw.shape)
-    scale = 640 / major_dim
+    scale = 320 / major_dim
     outscale = 1 / scale
     imraw = cv2.resize(imraw, None, fx=scale, fy=scale)
-    img = np.zeros((640, 640, 3), dtype=imraw.dtype)
+    img = np.zeros((320, 320, 3), dtype=imraw.dtype)
     img[: imraw.shape[0], : imraw.shape[1], :] = imraw
     return img, outscale
 
@@ -93,7 +93,7 @@ class YoloOpenVinoDetector:
         for idx in nms_res:
             conf = confidences[idx]
             classnm = class_ids[idx]
-            x, y, w, h = np.clip(boxes[idx], 0, 640).astype(np.uint32)
+            x, y, w, h = np.clip(boxes[idx], 0, 320).astype(np.uint32)
             d = (x, y, x + w, y + h)  # xyxy format
             corners = np.array(((d[0], d[1]), (d[0], d[3]), (d[2], d[3]), (d[2], d[1])))
 

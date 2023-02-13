@@ -115,7 +115,7 @@ def main():
     
 
     april = april_detector.AprilDetector((320,240))
-    yolo = openvino_detect.YoloOpenVinoDetector("/home/team2438/FRC-2023-ChargedUp-Vision/weights/")
+    yolo = openvino_detect.YoloOpenVinoDetector("/Users/student/FRC-2023-ChargedUp-Vision/weights/")
     while True:
         # Grabs latest frame and sets to img, out returns 0 if error and time if not error
         out, img1 = outputSink1.grabFrame(img1) # img1 in BGR format
@@ -135,34 +135,30 @@ def main():
             rotationZPublisher.set(value = out[5])
             tagIDPublisher.set(value = out[6])
         
-        #out = yolo.detect(cv2.cvtColor(img1,cv2.COLOR_BGR2RGB))
-        #yoloimg1 = img1.copy()
-        #if out != 0:
-            #for i in out:
-                #if i["confidence"] < 0.8:
-                    #continue
-                #order = i["corners"]
+        out = yolo.detect(cv2.cvtColor(img1,cv2.COLOR_BGR2RGB))
+        yoloimg1 = img1.copy()
+        if out != 0:
+            for i in out:
+                # if i["confidence"] < 0.8:
+                #     continue
+                order = i["corners"]
 
-                #cv2.line(yoloimg1, order[0,:].astype(int), order[1,:].astype(int), i["color"], 3)
-                #cv2.line(yoloimg1, order[1,:].astype(int), order[2,:].astype(int), i["color"], 3)
-                #cv2.line(yoloimg1, order[2,:].astype(int), order[3,:].astype(int), i["color"], 3)
-                #cv2.line(yoloimg1, order[3,:].astype(int), order[0,:].astype(int), i["color"], 3)
+                cv2.line(yoloimg1, order[0,:].astype(int), order[1,:].astype(int), i["color"], 3)
+                cv2.line(yoloimg1, order[1,:].astype(int), order[2,:].astype(int), i["color"], 3)
+                cv2.line(yoloimg1, order[2,:].astype(int), order[3,:].astype(int), i["color"], 3)
+                cv2.line(yoloimg1, order[3,:].astype(int), order[0,:].astype(int), i["color"], 3)
 
-                # converts float number to int to plot a circle on the corner
-                #cv2.circle(yoloimg1, (tuple(order[0,:].astype(int))), 8, i["color"], 4) # left bottom
-                #cv2.circle(yoloimg1, (tuple(order[1,:].astype(int))), 8, i["color"], 4) # right bottom
-                #cv2.circle(yoloimg1, (tuple(order[2,:].astype(int))), 8, i["color"], 4) # right top
-                #cv2.circle(yoloimg1, (tuple(order[3,:].astype(int))), 8, i["color"], 4) # left top
+                cv2.putText(yoloimg1,"id: "+str(i["id"])+", "+str(i["confidence"]),order[0,:].astype(int),cv2.FONT_HERSHEY_SIMPLEX,1,i["color"],2)
 
 
-        # cv2.imshow('f',yoloimg1)
+        cv2.imshow('f',yoloimg1)
 
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
         cameraSelected = cameraSelectionSubscriber.get()
         # outputSource.putFrame(img1 if cameraSelected == 0 else img2 if cameraSelected == 1 else aprimg if cameraSelected == 2 else yoloimg)
-        outputSource.putFrame(aprimg1)
+        # outputSource.putFrame(aprimg1)
 
 
 
