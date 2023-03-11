@@ -3,6 +3,7 @@ import cscore
 import ntcore # when looking at documentation make sure looking at ntcore and not networktables, networktables is a old version
 import cv2
 import numpy as np
+import time
 
 #import detectors
 import april_detector
@@ -52,9 +53,14 @@ def processing(img):
 
     return output_img
 
+def getArea(corners):
+    return (corners[2][0]-corners[0][0])*(corners[2][1]-corners[0][1])
 
+def main():
+    OUT_RESOLUTION = 320,240
+    APRIL_RESOLUTION = 320,240
+    CAMERA_RESOLUTION = 320,240
 
-def main():    
     #initialise network tables instance
     nt = ntcore.NetworkTableInstance.getDefault() # get global network tables instance
     nt.startClient4("2438") 
@@ -62,16 +68,16 @@ def main():
 
     sd = nt.getTable("SmartDashboard") # send info to smartdashboard table
 
-    cameraSelectionTopic = sd.getIntegerTopic("CameraSelection")
-    cameraSelectionSubscriber = cameraSelectionTopic.subscribe(0)
+    cameraSelectionTopic = sd.getIntegerTopic("Camera")
+    cameraSelectionSubscriber = cameraSelectionTopic.subscribe(defaultValue = 0)
 
     cs = cscore.CameraServer # set cs to CameraServer singleton object
     cs.enableLogging()
 
     camera_1 = cscore.UsbCamera(name = 'camera_1', dev = 0) # USB camera 
-    camera_1.setResolution(1280,960)
+    camera_1.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
     camera_2 = cscore.UsbCamera(name = 'camera_2', dev = 2) # USB camera
-    camera_2.setResolution(320,240)
+    camera_2.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
 
     cs.addCamera(camera_1)
     cs.addCamera(camera_2)
@@ -86,12 +92,12 @@ def main():
 
     
     #pre allocate img for memory
-    img1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
-    img2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
-    aprimg1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
-    aprimg2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
-    yoloimg1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
-    yoloimg2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    raw1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    raw2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    processed1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    processed2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    yoloraw1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
+    yoloraw2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
 
     # img = np.zeros(shape=(6, 1280, 960, 3), dtype=np.uint8)
 
@@ -103,6 +109,12 @@ def main():
     rotationY = sd.getDoubleTopic("RotationY")
     rotationZ = sd.getDoubleTopic("RotationZ")
     tagID = sd.getIntegerTopic("aprilTagID")
+    tagCenterX = sd.getDoubleTopic("tagCenterX")
+    tagCenterY = sd.getDoubleTopic("tagCenterY")
+
+    objectInFrame = sd.getBooleanTopic("objectInFrame")
+    objectX = sd.getDoubleTopic("objectX")
+    objectId = sd.getIntegerTopic("objectId")
     
     # create publishers for all info topics
     translationXPublisher = translationX.publish()
@@ -112,21 +124,40 @@ def main():
     rotationYPublisher = rotationY.publish()
     rotationZPublisher = rotationZ.publish()
     tagIDPublisher = tagID.publish()
+    tagCenterXPublisher = tagCenterX.publish()
+    tagCenterYPublisher = tagCenterY.publish()
+
+    objectInFramePublisher = objectInFrame.publish()
+    objectXPublisher = objectX.publish()
+    objectIdPublisher = objectId.publish()
     
 
-    april = april_detector.AprilDetector((320,240))
-    yolo = openvino_detect.YoloOpenVinoDetector("/Users/student/FRC-2023-ChargedUp-Vision/weights/")
+    april = april_detector.AprilDetector(APRIL_RESOLUTION)
+    yolo = openvino_detect.YoloOpenVinoDetector("/home/team2438/FRC-2023-ChargedUp-Vision/weights/")
+    framerate = []
+    april_percent = []
+    object_percent = []
     while True:
+        t_0 = time.time()
         # Grabs latest frame and sets to img, out returns 0 if error and time if not error
-        out, img1 = outputSink1.grabFrame(img1) # img1 in BGR format
+        out, raw1 = outputSink1.grabFrame(raw1) # raw1 in BGR format
         if out == 0: # skips if cant grab frame
-            print(outputSink1.getError())
-            continue
-	#cv2.resize(img1, (320,240))
-        out, aprimg1 = april.detect(cv2.resize(img1, (320,240))) # runs apriltag detector, out is list of all important outputs
-        #aprimg1 = cv2.resize(aprimg1, (320,240))
+            print("Camera source 1 returned: ", outputSink1.getError())
+            # continue
+
+        out, raw2 = outputSink2.grabFrame(raw2) # raw1 in BGR format
+        if out == 0: # skips if cant grab frame
+            print("Camera source 2 returned: ", outputSink2.getError())
+            # continue
+
+        out = 0
+
+        processed2 = raw2.copy()
+
+        april_time_0 = time.time()
+        out, processed1 = april.detect(cv2.resize(raw1, APRIL_RESOLUTION)) # runs apriltag detector, out is list of all important outputs
+        processed1 = cv2.resize(processed1, OUT_RESOLUTION)
         if out != 0: 
-            print(out)
             translationXPublisher.set(value = out[0])
             translationYPublisher.set(value = out[1])
             translationZPublisher.set(value = out[2])
@@ -134,31 +165,75 @@ def main():
             rotationYPublisher.set(value = out[4])
             rotationZPublisher.set(value = out[5])
             tagIDPublisher.set(value = out[6])
+
+            # Normalize the apriltag center position to (-1.0, 1.0)
+            half_w = APRIL_RESOLUTION[0] // 2
+            half_h = APRIL_RESOLUTION[1] // 2
+            norm_x = (out[7] - half_w) / half_w
+            norm_y = (out[8] - half_h) / half_h
+            tagCenterXPublisher.set(value = norm_x)
+            tagCenterYPublisher.set(value = norm_y)
+
+        april_time_1 = time.time()
         
-        out = yolo.detect(cv2.cvtColor(img1,cv2.COLOR_BGR2RGB))
-        yoloimg1 = img1.copy()
-        if out != 0:
-            for i in out:
-                # if i["confidence"] < 0.8:
-                #     continue
-                order = i["corners"]
+        out = 0
 
-                cv2.line(yoloimg1, order[0,:].astype(int), order[1,:].astype(int), i["color"], 3)
-                cv2.line(yoloimg1, order[1,:].astype(int), order[2,:].astype(int), i["color"], 3)
-                cv2.line(yoloimg1, order[2,:].astype(int), order[3,:].astype(int), i["color"], 3)
-                cv2.line(yoloimg1, order[3,:].astype(int), order[0,:].astype(int), i["color"], 3)
+        obj_time_0 = time.time()
 
-                cv2.putText(yoloimg1,"id: "+str(i["id"])+", "+str(i["confidence"]),order[0,:].astype(int),cv2.FONT_HERSHEY_SIMPLEX,1,i["color"],2)
+        cameraSelected = cameraSelectionSubscriber.get(defaultValue=0) % 2
+
+        # yoloraw1 = cv2.resize(raw1, OUT_RESOLUTION)
+        out = yolo.detect(cv2.cvtColor(cv2.resize(raw1 if cameraSelected == 0 else raw2, OUT_RESOLUTION),cv2.COLOR_BGR2RGB))
+        if out != []:
+
+            largest = -1
+
+            for i in range(len(out)):
+            
+                if out[i]["confidence"] > 0.5:
+
+                    if getArea(out[i]["corners"]) > (getArea(out[largest]["corners"]) if largest != -1 else 0):
+
+                        largest = i
+
+            if largest != -1:
+                order = out[largest]["corners"]
+
+                img = processed1 if cameraSelected == 0 else processed2
+
+                cv2.line(img, order[0,:].astype(int), order[1,:].astype(int), out[largest]["color"], 3)
+                cv2.line(img, order[1,:].astype(int), order[2,:].astype(int), out[largest]["color"], 3)
+                cv2.line(img, order[2,:].astype(int), order[3,:].astype(int), out[largest]["color"], 3)
+                cv2.line(img, order[3,:].astype(int), order[0,:].astype(int), out[largest]["color"], 3)
+
+                cv2.putText(img,"id: "+str(out[largest]["id"])+", "+str(out[largest]["confidence"]),order[0,:].astype(int),cv2.FONT_HERSHEY_SIMPLEX,1,out[largest]["color"],2)
+
+                objectInFramePublisher.set(True)
+                objectXPublisher.set((order[0][0]+order[2][0])/320 - 1)
+                objectIdPublisher.set(out[largest]["id"])
+        else:
+            objectInFramePublisher.set(False)
+
+        obj_time_1 = time.time()
+        t_1 = time.time()
+        # print(1 / (t_1 - t_0), "iters/sec")
+        framerate.append(1 / (t_1 - t_0))
+        april_percent.append((april_time_1-april_time_0)/(t_1-t_0)*100)
+        object_percent.append((obj_time_1-obj_time_0)/(t_1-t_0)*100)
 
 
-        cv2.imshow('f',yoloimg1)
+        # print(sum(framerate) / len(framerate), "framerate")
+        # print(sum(april_percent)/ len(april_percent),"april percentage")
+        # print(sum(object_percent)/ len(object_percent), "object percentage")
+
+        # cv2.imshow('f',yoloraw1)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        cameraSelected = cameraSelectionSubscriber.get()
-        # outputSource.putFrame(img1 if cameraSelected == 0 else img2 if cameraSelected == 1 else aprimg if cameraSelected == 2 else yoloimg)
-        # outputSource.putFrame(aprimg1)
+        cameraSelected = cameraSelectionSubscriber.get(defaultValue=0) % 2
+        outputSource.putFrame(processed1 if cameraSelected == 0 else processed2)
+        # outputSource.putFrame(raw2)
 
 
 

@@ -11,7 +11,7 @@ class AprilDetector:
         cfg = robotpy_apriltag.AprilTagDetector().Config()
         cfg.debug = False
         cfg.decodeSharpening = 0.25
-        cfg.numThreads = 4
+        cfg.numThreads = 16
         cfg.quadDecimate = 2.0
         cfg.quadSigma = 0.0
         cfg.refineEdges = True
@@ -28,6 +28,10 @@ class AprilDetector:
         # adds a family of apriltags
         tag = self.det.addFamily("tag16h5")
 
+        self.result = cv2.VideoWriter('recording.avi', cv2.VideoWriter_fourcc(*'JPEG'), 25, size)
+
+
+
     def convert(self,frame): # converst image from RGB to Grayscale
         return cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
@@ -39,16 +43,16 @@ class AprilDetector:
         # for loop that detects the corners and position of the apriltags
         for i in detectionList:
 
-            # returns a prebuilt list of python objects
-            detectionList = self.det.detect(processed)
-
             # decision_margin
-            # ignore anything lower than 35
+            # ignore anything lower than 85
             margin = i.getDecisionMargin()
+            Id = i.getId()
 
-            if margin > 60:
+
+            if margin > 85:
                 # identifying the corners of the apriltag
                 corners = i.getCorners([0]*8)
+                center = i.getCenter()
                 # reshape corners into a 4 by 2 matrix
                 order = np.array(corners).reshape((4,2))
 
@@ -69,8 +73,9 @@ class AprilDetector:
                 #pose = estimator.estimate(det)
                 translate = self.estimator.estimate(i).translation()
                 rotation = self.estimator.estimate(i).rotation()
-                return [translate.X(),translate.Y(),translate.Z(), rotation.X(),rotation.Y(),rotation.Z(), i.getId()], frame
+                return [translate.X(),translate.Y(),translate.Z(), rotation.X(),rotation.Y(),rotation.Z(), i.getId(), center.x, center.y], frame
             else:
                 # shows the image with the circles and lines on
+                self.result.write(frame)
                 return 0, frame
         return 0, frame
