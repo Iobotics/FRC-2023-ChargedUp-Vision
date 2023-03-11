@@ -1,0 +1,8 @@
+stride: 32
+names:
+  0: Cube
+  1: Cone
+  2: ConeDownTop
+  3: ConeDownBottom
+  4: ConeDownLeft
+  5: ConeDownRight

@@ -133,7 +133,7 @@ def main():
     
 
     april = april_detector.AprilDetector(APRIL_RESOLUTION)
-    yolo = openvino_detect.YoloOpenVinoDetector("/home/team2438/FRC-2023-ChargedUp-Vision/weights/")
+    yolo = openvino_detect.YoloOpenVinoDetector("/home/team2438/FRC-2023-ChargedUp-Vision/best_openvino_model/")
     framerate = []
     april_percent = []
     object_percent = []
@@ -143,12 +143,12 @@ def main():
         out, raw1 = outputSink1.grabFrame(raw1) # raw1 in BGR format
         if out == 0: # skips if cant grab frame
             print("Camera source 1 returned: ", outputSink1.getError())
-            # continue
+            continue
 
         out, raw2 = outputSink2.grabFrame(raw2) # raw1 in BGR format
         if out == 0: # skips if cant grab frame
             print("Camera source 2 returned: ", outputSink2.getError())
-            # continue
+            continue
 
         out = 0
 
