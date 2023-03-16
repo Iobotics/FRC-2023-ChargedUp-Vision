@@ -28,54 +28,84 @@ class AprilDetector:
         # adds a family of apriltags
         tag = self.det.addFamily("tag16h5")
 
-        self.result = cv2.VideoWriter('recording.avi', cv2.VideoWriter_fourcc(*'JPEG'), 25, size)
-
 
 
     def convert(self,frame): # converst image from RGB to Grayscale
         return cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+
+    def getArea(self,corners): #assumes corners are ordered clockwise
+        # a = 0,1 b = 2,3 c = 4,5 d = 6,7
+        # swap b and d to counterclockwise corners for shoelace method
+        area = ((corners[0]*corners[7] + corners[6]*corners[5] + corners[4]*corners[3] + corners[2]*corners[1]) -
+                (corners[6]*corners[1] + corners[4]*corners[7] + corners[2]*corners[5] + corners[0]*corners[3]))/2
+        
+        return area
+
 
     def detect(self,frame):
         processed = self.convert(frame)
         t_end = time.time()
         detectionList = self.det.detect(processed)
 
+        if detectionList == []:
+            return 0, frame
+
+        for tag in range(len(detectionList)-1,-1,-1):
+            margin = detectionList[tag].getDecisionMargin()
+            Id = detectionList[tag].getId()
+            if margin < 85 or Id > 8 or Id < 0:
+                detectionList.pop(tag)
+
+        if detectionList == []:
+            return 0, frame
+        
+        largest = 0
+
         # for loop that detects the corners and position of the apriltags
-        for i in detectionList:
+        for i in range(len(detectionList)):
+            if self.getArea(detectionList[i].getCorners([0]*8)) > self.getArea(detectionList[largest].getCorners([0]*8)):
+                largest = i
 
-            # decision_margin
-            # ignore anything lower than 85
-            margin = i.getDecisionMargin()
-            Id = i.getId()
+        
 
+        # identifying the corners of the apriltag
+        corners = detectionList[largest].getCorners([0]*8)
+        center = detectionList[largest].getCenter()
+        # reshape corners into a 4 by 2 matrix
+        order = np.array(corners).reshape((4,2))
 
-            if margin > 85:
-                # identifying the corners of the apriltag
-                corners = i.getCorners([0]*8)
-                center = i.getCenter()
-                # reshape corners into a 4 by 2 matrix
-                order = np.array(corners).reshape((4,2))
+        # draw lines from the corner points
+        cv2.line(frame, order[0,:].astype(int), order[1,:].astype(int), (0,0,255), 3)
+        cv2.line(frame, order[1,:].astype(int), order[2,:].astype(int), (0,0,255), 3)
+        cv2.line(frame, order[2,:].astype(int), order[3,:].astype(int), (0,0,255), 3)
+        cv2.line(frame, order[3,:].astype(int), order[0,:].astype(int), (0,0,255), 3)
 
-                # draw lines from the corner points
-                cv2.line(frame, order[0,:].astype(int), order[1,:].astype(int), (0,0,255), 3)
-                cv2.line(frame, order[1,:].astype(int), order[2,:].astype(int), (0,0,255), 3)
-                cv2.line(frame, order[2,:].astype(int), order[3,:].astype(int), (0,0,255), 3)
-                cv2.line(frame, order[3,:].astype(int), order[0,:].astype(int), (0,0,255), 3)
+        # converts float number to int to plot a circle on the corner
+        cv2.circle(frame, (tuple(order[0,:].astype(int))), 8, (255,100,0), 4) # left bottom
+        cv2.circle(frame, (tuple(order[1,:].astype(int))), 8, (255,100,0), 4) # right bottom
+        cv2.circle(frame, (tuple(order[2,:].astype(int))), 8, (255,100,0), 4) # right top
+        cv2.circle(frame, (tuple(order[3,:].astype(int))), 8, (255,100,0), 4) # left top
 
-                # converts float number to int to plot a circle on the corner
-                cv2.circle(frame, (tuple(order[0,:].astype(int))), 8, (255,100,0), 4) # left bottom
-                cv2.circle(frame, (tuple(order[1,:].astype(int))), 8, (255,100,0), 4) # right bottom
-                cv2.circle(frame, (tuple(order[2,:].astype(int))), 8, (255,100,0), 4) # right top
-                cv2.circle(frame, (tuple(order[3,:].astype(int))), 8, (255,100,0), 4) # left top
+        #cv2.putText(capture, "ID", tuple(order[1,:].astype(int)), font, 2, (255,200,150), 5, cv2.LINE_AA, False)
+        # AprilTagPoseEstimator
+        #pose = estimator.estimate(det)
+        translate = self.estimator.estimate(detectionList[largest]).translation()
+        rotation = self.estimator.estimate(detectionList[largest]).rotation()
+        return [translate.X(),translate.Y(),translate.Z(), rotation.X(),rotation.Y(),rotation.Z(), detectionList[largest].getId(), center.x, center.y], frame
+        
+if __name__ == "__main__":
+    cap = cv2.VideoCapture(0)
 
-                #cv2.putText(capture, "ID", tuple(order[1,:].astype(int)), font, 2, (255,200,150), 5, cv2.LINE_AA, False)
-                # AprilTagPoseEstimator
-                #pose = estimator.estimate(det)
-                translate = self.estimator.estimate(i).translation()
-                rotation = self.estimator.estimate(i).rotation()
-                return [translate.X(),translate.Y(),translate.Z(), rotation.X(),rotation.Y(),rotation.Z(), i.getId(), center.x, center.y], frame
-            else:
-                # shows the image with the circles and lines on
-                self.result.write(frame)
-                return 0, frame
-        return 0, frame
+    detector = AprilDetector((320,240))
+
+    while True:
+        r, frame = cap.read()
+
+        if r == True:
+
+            detector.detect(frame)
+
+            cv2.imshow("f",frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break

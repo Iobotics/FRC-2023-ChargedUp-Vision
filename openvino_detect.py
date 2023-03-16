@@ -6,7 +6,7 @@ from openvino.runtime import Core, Layout
 
 # Follows the defaults in ultralytics repo
 BOX_THRESH = 0.25
-IMG_SIZE = 640
+IMG_SIZE = 320
 CLASS_THRESH = 0.25
 NMS_THRESH = 0.45
 NMS_SCORE_THRESH = BOX_THRESH * CLASS_THRESH

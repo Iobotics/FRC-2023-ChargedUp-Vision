@@ -4,6 +4,7 @@ import ntcore # when looking at documentation make sure looking at ntcore and no
 import cv2
 import numpy as np
 import time
+import os
 
 #import detectors
 import april_detector
@@ -96,8 +97,6 @@ def main():
     raw2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
     processed1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
     processed2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
-    yoloraw1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
-    yoloraw2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
 
     # img = np.zeros(shape=(6, 1280, 960, 3), dtype=np.uint8)
 
@@ -137,6 +136,23 @@ def main():
     framerate = []
     april_percent = []
     object_percent = []
+
+    i = 0
+    while os.path.isfile("raw1-"+i+".avi"):
+        i+=1
+
+    videopath1 = "raw1-"+i+".avi"
+    
+    raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'JPEG'), 25, CAMERA_RESOLUTION)
+
+    i = 0
+    while os.path.isfile("raw2-"+i+".avi"):
+        i+=1
+
+    videopath2 = "raw2-"+i+".avi"
+
+    raw2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'JPEG'), 25, CAMERA_RESOLUTION)
+
     while True:
         t_0 = time.time()
         # Grabs latest frame and sets to img, out returns 0 if error and time if not error
@@ -145,10 +161,14 @@ def main():
             print("Camera source 1 returned: ", outputSink1.getError())
             continue
 
+        raw1Video.write(raw1)
+
         out, raw2 = outputSink2.grabFrame(raw2) # raw1 in BGR format
         if out == 0: # skips if cant grab frame
             print("Camera source 2 returned: ", outputSink2.getError())
             continue
+
+        raw2Video.write(raw2)
 
         out = 0
 
@@ -226,10 +246,10 @@ def main():
         # print(sum(april_percent)/ len(april_percent),"april percentage")
         # print(sum(object_percent)/ len(object_percent), "object percentage")
 
-        # cv2.imshow('f',yoloraw1)
+        # cv2.imshow('f',processed1)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+            # break
 
         cameraSelected = cameraSelectionSubscriber.get(defaultValue=0) % 2
         outputSource.putFrame(processed1 if cameraSelected == 0 else processed2)
