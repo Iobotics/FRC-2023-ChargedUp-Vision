@@ -143,7 +143,7 @@ def main():
 
     videopath1 = "raw1-"+str(i)+".avi"
     
-    raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'JPEG'), 25, CAMERA_RESOLUTION)
+    raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
     i = 0
     while os.path.isfile("raw2-"+str(i)+".avi"):
@@ -151,7 +151,7 @@ def main():
 
     videopath2 = "raw2-"+str(i)+".avi"
 
-    raw2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'JPEG'), 25, CAMERA_RESOLUTION)
+    raw2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
     while True:
         t_0 = time.time()
