@@ -138,18 +138,18 @@ def main():
     object_percent = []
 
     i = 0
-    while os.path.isfile("raw1-"+i+".avi"):
+    while os.path.isfile("raw1-"+str(i)+".avi"):
         i+=1
 
-    videopath1 = "raw1-"+i+".avi"
+    videopath1 = "raw1-"+str(i)+".avi"
     
     raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'JPEG'), 25, CAMERA_RESOLUTION)
 
     i = 0
-    while os.path.isfile("raw2-"+i+".avi"):
+    while os.path.isfile("raw2-"+str(i)+".avi"):
         i+=1
 
-    videopath2 = "raw2-"+i+".avi"
+    videopath2 = "raw2-"+str(i)+".avi"
 
     raw2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'JPEG'), 25, CAMERA_RESOLUTION)
 
