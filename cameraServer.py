@@ -12,12 +12,12 @@ import openvino_detect
 
 
 # DEPRECATED: old function for color based object detection
-def contours(binary_img, min_area=15): 
+def contours(binary_img, min_area=15):
     contour_list, _ = cv2.findContours(binary_img, mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
     return [x for x in contour_list if (cv2.contourArea(x) >= min_area)]
 
 # DEPRECATED: old function for color based object detection
-def draw(img, contour_list, drawColor): 
+def draw(img, contour_list, drawColor):
     width = img.shape[0]
     height = img.shape[1]
 
@@ -37,7 +37,7 @@ def draw(img, contour_list, drawColor):
         cv2.circle(output_img, center = center, radius = 3, color = drawColor, thickness = -1)
 
         convexHull = cv2.convexHull(contour)
-    
+
     return output_img
 
 # DEPRECATED: old function for color based object detection
@@ -64,7 +64,7 @@ def main():
 
     #initialise network tables instance
     nt = ntcore.NetworkTableInstance.getDefault() # get global network tables instance
-    nt.startClient4("2438") 
+    nt.startClient4("2438")
     nt.setServerTeam(2438) # sets server to send to common ip for 2438
 
     sd = nt.getTable("SmartDashboard") # send info to smartdashboard table
@@ -75,7 +75,7 @@ def main():
     cs = cscore.CameraServer # set cs to CameraServer singleton object
     cs.enableLogging()
 
-    camera_1 = cscore.UsbCamera(name = 'camera_1', dev = 0) # USB camera 
+    camera_1 = cscore.UsbCamera(name = 'camera_1', dev = 0) # USB camera
     camera_1.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
     camera_2 = cscore.UsbCamera(name = 'camera_2', dev = 2) # USB camera
     camera_2.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
@@ -91,7 +91,7 @@ def main():
     outputSink1 = cs.getVideo(camera=camera_1)
     outputSink2 = cs.getVideo(camera=camera_2)
 
-    
+
     #pre allocate img for memory
     raw1 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
     raw2 = np.zeros(shape=(960, 1280, 3), dtype=np.uint8)
@@ -114,7 +114,7 @@ def main():
     objectInFrame = sd.getBooleanTopic("objectInFrame")
     objectX = sd.getDoubleTopic("objectX")
     objectId = sd.getIntegerTopic("objectId")
-    
+
     # create publishers for all info topics
     translationXPublisher = translationX.publish()
     translationYPublisher = translationY.publish()
@@ -129,7 +129,7 @@ def main():
     objectInFramePublisher = objectInFrame.publish()
     objectXPublisher = objectX.publish()
     objectIdPublisher = objectId.publish()
-    
+
 
     april = april_detector.AprilDetector(APRIL_RESOLUTION)
     yolo = openvino_detect.YoloOpenVinoDetector("/home/team2438/FRC-2023-ChargedUp-Vision/best_openvino_model/")
@@ -142,7 +142,7 @@ def main():
         i+=1
 
     videopath1 = "raw1-"+str(i)+".avi"
-    
+
     raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
     i = 0
@@ -167,6 +167,8 @@ def main():
         if out == 0: # skips if cant grab frame
             print("Camera source 2 returned: ", outputSink2.getError())
             continue
+        raw2 = np.ascontiguousarray(raw2[::-1, ::-1])
+        # raw2 = cv2.flip(raw2, -1)
 
         raw2Video.write(raw2)
 
@@ -177,7 +179,7 @@ def main():
         april_time_0 = time.time()
         out, processed1 = april.detect(cv2.resize(raw1, APRIL_RESOLUTION)) # runs apriltag detector, out is list of all important outputs
         processed1 = cv2.resize(processed1, OUT_RESOLUTION)
-        if out != 0: 
+        if out != 0:
             translationXPublisher.set(value = out[0])
             translationYPublisher.set(value = out[1])
             translationZPublisher.set(value = out[2])
@@ -193,9 +195,13 @@ def main():
             norm_y = (out[8] - half_h) / half_h
             tagCenterXPublisher.set(value = norm_x)
             tagCenterYPublisher.set(value = norm_y)
+        else:
+            tagCenterXPublisher.set(0)
+            tagCenterYPublisher.set(0)
+
 
         april_time_1 = time.time()
-        
+
         out = 0
 
         obj_time_0 = time.time()
@@ -209,7 +215,7 @@ def main():
             largest = -1
 
             for i in range(len(out)):
-            
+
                 if out[i]["confidence"] > 0.5:
 
                     if getArea(out[i]["corners"]) > (getArea(out[largest]["corners"]) if largest != -1 else 0):
@@ -232,6 +238,7 @@ def main():
                 objectXPublisher.set((order[0][0]+order[2][0])/320 - 1)
                 objectIdPublisher.set(out[largest]["id"])
         else:
+            objectXPublisher.set(0)
             objectInFramePublisher.set(False)
 
         obj_time_1 = time.time()
