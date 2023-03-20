@@ -177,7 +177,15 @@ def main():
         april_time_0 = time.time()
         out, processed1 = april.detect(cv2.resize(raw1, APRIL_RESOLUTION)) # runs apriltag detector, out is list of all important outputs
         processed1 = cv2.resize(processed1, OUT_RESOLUTION)
-        if out != 0: 
+        if out == 0: 
+            translationXPublisher.set(value = 0)
+            translationYPublisher.set(value = 0)
+            translationZPublisher.set(value = 0)
+            rotationXPublisher.set(value = 0)
+            rotationYPublisher.set(value = 0)
+            rotationZPublisher.set(value = 0)
+            tagIDPublisher.set(value = 43)
+        else:
             translationXPublisher.set(value = out[0])
             translationYPublisher.set(value = out[1])
             translationZPublisher.set(value = out[2])
@@ -193,6 +201,7 @@ def main():
             norm_y = (out[8] - half_h) / half_h
             tagCenterXPublisher.set(value = norm_x)
             tagCenterYPublisher.set(value = norm_y)
+
 
         april_time_1 = time.time()
         
@@ -233,6 +242,8 @@ def main():
                 objectIdPublisher.set(out[largest]["id"])
         else:
             objectInFramePublisher.set(False)
+            objectXPublisher.set(0)
+            objectIdPublisher.set(-1)
 
         obj_time_1 = time.time()
         t_1 = time.time()

@@ -103,7 +103,10 @@ if __name__ == "__main__":
 
         if r == True:
 
-            detector.detect(frame)
+            l, frame = detector.detect(frame)
+
+            print(l)
+
 
             cv2.imshow("f",frame)
 
