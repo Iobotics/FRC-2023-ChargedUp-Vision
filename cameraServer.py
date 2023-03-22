@@ -140,18 +140,27 @@ def main():
     i = 0
     while os.path.isfile("raw1-"+str(i)+".avi"):
         i+=1
-
     videopath1 = "raw1-"+str(i)+".avi"
-    
     raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
     i = 0
     while os.path.isfile("raw2-"+str(i)+".avi"):
         i+=1
-
     videopath2 = "raw2-"+str(i)+".avi"
-
     raw2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
+
+    i = 0
+    while os.path.isfile("processed1-"+str(i)+".avi"):
+        i+=1
+    videopath1 = "processed1-"+str(i)+".avi"
+    processed1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
+
+    i = 0
+    while os.path.isfile("processed2-"+str(i)+".avi"):
+        i+=1
+    videopath2 = "processed2-"+str(i)+".avi"
+    processed2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
+
 
     while True:
         t_0 = time.time()
@@ -261,6 +270,9 @@ def main():
 
         # if cv2.waitKey(1) & 0xFF == ord('q'):
             # break
+
+        processed1Video.write(processed1)
+        processed2Video.write(processed2)
 
         cameraSelected = cameraSelectionSubscriber.get(defaultValue=0) % 2
         outputSource.putFrame(processed1 if cameraSelected == 0 else processed2)
