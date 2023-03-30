@@ -194,6 +194,8 @@ def main():
             rotationYPublisher.set(value = 0)
             rotationZPublisher.set(value = 0)
             tagIDPublisher.set(value = 43)
+            tagCenterXPublisher.set(value = 0)
+            tagCenterYPublisher.set(value = 0)
         else:
             translationXPublisher.set(value = out[0])
             translationYPublisher.set(value = out[1])
