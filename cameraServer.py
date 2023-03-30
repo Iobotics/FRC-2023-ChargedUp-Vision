@@ -75,7 +75,7 @@ def main():
     cs = cscore.CameraServer # set cs to CameraServer singleton object
     cs.enableLogging()
 
-    camera_1 = cscore.UsbCamera(name = 'camera_1', dev = 0) # USB camera 
+    camera_1 = cscore.startAutomaticCapture(name = 'camera_1', dev = 0) # USB camera 
     camera_1.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
     camera_2 = cscore.UsbCamera(name = 'camera_2', dev = 2) # USB camera
     camera_2.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
@@ -276,8 +276,8 @@ def main():
         processed1Video.write(processed1)
         processed2Video.write(processed2)
 
-        cameraSelected = cameraSelectionSubscriber.get(defaultValue=0) % 2
-        outputSource.putFrame(processed1 if cameraSelected == 0 else processed2)
+        # cameraSelected = cameraSelectionSubscriber.get(defaultValue=0) % 2
+        # outputSource.putFrame(processed1 if cameraSelected == 0 else processed2)
         # outputSource.putFrame(raw2)
 
 
