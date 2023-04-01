@@ -20,9 +20,13 @@ class AprilDetector:
         self.det.setConfig(cfg)
 
         # Copying parameters from the calibration script result
-        fx, fy, cx, cy = (1395.1527042544735, 1391.6280089009383, 639.070620047402, 353.97356161241004)
+
+        # Corrected fisheye cal parameters
+        fx, fy, cx, cy = (631.5890450325475, 633.3480210118502, 522.198464627787, 376.5365378964505)
+        config = robotpy_apriltag.AprilTagPoseEstimator.Config(0.153, fx, fy, cx, cy)
+        # fx, fy, cx, cy = (1395.1527042544735, 1391.6280089009383, 639.070620047402, 353.97356161241004)
         # creates an ApriltagPoseEstimator to calculate the position, angle, distance, etc of apriltag
-        config = robotpy_apriltag.AprilTagPoseEstimator.Config(0.153*(size[0]/1280) , fx, fy, cx, cy)
+        # config = robotpy_apriltag.AprilTagPoseEstimator.Config(0.153 , fx, fy, cx, cy)
         self.estimator = robotpy_apriltag.AprilTagPoseEstimator(config)
 
         # adds a family of apriltags

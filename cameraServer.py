@@ -10,54 +10,30 @@ import os
 import april_detector
 import openvino_detect
 
+# Ardu metal cased fisheye camera
+fx, fy, cx, cy = (638.5222808405631, 639.1981848579838, 531.4986777188549, 384.25213048678825)
 
-# DEPRECATED: old function for color based object detection
-def contours(binary_img, min_area=15): 
-    contour_list, _ = cv2.findContours(binary_img, mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
-    return [x for x in contour_list if (cv2.contourArea(x) >= min_area)]
+#Fisheye to rectliniear
+K = np.array([
+    [fx, 0, cx],
+    [0, fy, cy,],
+    [0,  0,  1]
+])
+D = np.array([
+    -0.11055561,
+    -0.05082173,
+     0.21495741,
+    -0.21144654])
 
-# DEPRECATED: old function for color based object detection
-def draw(img, contour_list, drawColor): 
-    width = img.shape[0]
-    height = img.shape[1]
 
-    output_img = np.copy(img)
+# Rectilinear calibration
 
-    x_list = []
-    y_list = []
-
-    for contour in contour_list:
-        cv2.drawContours(output_img, [contour],-1, color = (0, 255, 0), thickness = 2)
-
-        rect = cv2.minAreaRect(contour)
-        center, size, angle = rect
-        center = np.array(center, dtype=np.int32)
-
-        # cv2.drawContours(output_img, [cv2.boxPoints(rect).astype(int)], -1, color = drawColor, thickness = 2)
-        cv2.circle(output_img, center = center, radius = 3, color = drawColor, thickness = -1)
-
-        convexHull = cv2.convexHull(contour)
-    
-    return output_img
-
-# DEPRECATED: old function for color based object detection
-def processing(img):
-    hsvimg = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    cube_img = cv2.inRange(hsvimg, (120,100,100),(160,255,255))
-    cts = contours(cube_img)
-    output_img = draw(img,cts,(255,0,0))
-
-    hsvimg = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    cone_img = cv2.inRange(hsvimg, (20,150,150),(40,255,255))
-    cts = contours(cone_img)
-    output_img = draw(output_img,cts,(255,0,0))
-
-    return output_img
 
 def getArea(corners):
     return (corners[2][0]-corners[0][0])*(corners[2][1]-corners[0][1])
 
 def main():
+    FISHEYE_RESOLUTION = 1024,768
     OUT_RESOLUTION = 320,240
     APRIL_RESOLUTION = 320,240
     CAMERA_RESOLUTION = 320,240
@@ -66,6 +42,7 @@ def main():
     nt = ntcore.NetworkTableInstance.getDefault() # get global network tables instance
     nt.startClient4("2438") 
     nt.setServerTeam(2438) # sets server to send to common ip for 2438
+    # nt.setServer("127.0.0.1") # sets server self when debugging
 
     sd = nt.getTable("SmartDashboard") # send info to smartdashboard table
 
@@ -75,8 +52,13 @@ def main():
     cs = cscore.CameraServer # set cs to CameraServer singleton object
     cs.enableLogging()
 
+    # Fisheye Camera
     camera_1 = cscore.UsbCamera(name = 'camera_1', dev = 0) # USB camera 
-    camera_1.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
+    camera_1.setResolution(FISHEYE_RESOLUTION[0],FISHEYE_RESOLUTION[1])
+    camera_1.setPixelFormat(cscore.VideoMode.PixelFormat.kMJPEG)
+    camera_1.getProperty('gain').set(50)
+
+    #Logitech C310
     camera_2 = cscore.UsbCamera(name = 'camera_2', dev = 2) # USB camera
     camera_2.setResolution(CAMERA_RESOLUTION[0],CAMERA_RESOLUTION[1])
 
@@ -85,7 +67,7 @@ def main():
 
     # Does not actually send video back to dashboard
     # Creates cvSource object that is used to send frames back
-    outputSource = cs.putVideo('feed',1280,960)
+    outputSource = cs.putVideo('feed',320,240)
 
     #creates cvSink object that can be used to grab frames
     outputSink1 = cs.getVideo(camera=camera_1)
@@ -133,58 +115,61 @@ def main():
 
     april = april_detector.AprilDetector(APRIL_RESOLUTION)
     yolo = openvino_detect.YoloOpenVinoDetector("/home/team2438/FRC-2023-ChargedUp-Vision/best_openvino_model/")
+    # yolo = openvino_detect.YoloOpenVinoDetector("/home/kyle/Documents/FRC-2023-ChargedUp-Vision/best_openvino_model/")
     framerate = []
     april_percent = []
     object_percent = []
 
-    i = 0
-    while os.path.isfile("raw1-"+str(i)+".avi"):
-        i+=1
-    videopath1 = "raw1-"+str(i)+".avi"
-    raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
+    # i = 0
+    # while os.path.isfile("raw1-"+str(i)+".avi"):
+    #     i+=1
+    # videopath1 = "raw1-"+str(i)+".avi"
+    # raw1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
-    i = 0
-    while os.path.isfile("raw2-"+str(i)+".avi"):
-        i+=1
-    videopath2 = "raw2-"+str(i)+".avi"
-    raw2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
+    # i = 0
+    # while os.path.isfile("raw2-"+str(i)+".avi"):
+    #     i+=1
+    # videopath2 = "raw2-"+str(i)+".avi"
+    # raw2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
-    i = 0
-    while os.path.isfile("processed1-"+str(i)+".avi"):
-        i+=1
-    videopath1 = "processed1-"+str(i)+".avi"
-    processed1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
+    # i = 0
+    # while os.path.isfile("processed1-"+str(i)+".avi"):
+    #     i+=1
+    # videopath1 = "processed1-"+str(i)+".avi"
+    # processed1Video = cv2.VideoWriter(videopath1, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
-    i = 0
-    while os.path.isfile("processed2-"+str(i)+".avi"):
-        i+=1
-    videopath2 = "processed2-"+str(i)+".avi"
-    processed2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
+    # i = 0
+    # while os.path.isfile("processed2-"+str(i)+".avi"):
+    #     i+=1
+    # videopath2 = "processed2-"+str(i)+".avi"
+    # processed2Video = cv2.VideoWriter(videopath2, cv2.VideoWriter_fourcc(*'MJPG'), 25, CAMERA_RESOLUTION)
 
-
+    fmap1, fmap2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, (FISHEYE_RESOLUTION[0], FISHEYE_RESOLUTION[1]), cv2.CV_16SC2)
     while True:
         t_0 = time.time()
         # Grabs latest frame and sets to img, out returns 0 if error and time if not error
-        out, raw1 = outputSink1.grabFrame(raw1) # raw1 in BGR format
+        out, raw1 = outputSink1.grabFrame(np.zeros((1,1))) # raw1 in BGR format
         if out == 0: # skips if cant grab frame
             print("Camera source 1 returned: ", outputSink1.getError())
             continue
 
-        raw1Video.write(raw1)
+        # raw1Video.write(raw1)
 
-        out, raw2 = outputSink2.grabFrame(raw2) # raw1 in BGR format
+        out, raw2 = outputSink2.grabFrame(np.zeros((1,1))) # raw1 in BGR format
         if out == 0: # skips if cant grab frame
             print("Camera source 2 returned: ", outputSink2.getError())
             continue
 
-        raw2Video.write(raw2)
+        # raw2Video.write(raw2)
 
         out = 0
 
         processed2 = raw2.copy()
 
         april_time_0 = time.time()
-        out, processed1 = april.detect(cv2.resize(raw1, APRIL_RESOLUTION)) # runs apriltag detector, out is list of all important outputs
+        raw1 = cv2.remap(raw1, fmap1, fmap2, interpolation=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT)
+        # out, processed1 = april.detect(cv2.resize(raw1, APRIL_RESOLUTION)) # runs apriltag detector, out is list of all important outputs
+        out, processed1 = april.detect(raw1) # runs apriltag detector, out is list of all important outputs
         processed1 = cv2.resize(processed1, OUT_RESOLUTION)
         if out == 0: 
             translationXPublisher.set(value = 0)
@@ -194,6 +179,8 @@ def main():
             rotationYPublisher.set(value = 0)
             rotationZPublisher.set(value = 0)
             tagIDPublisher.set(value = 43)
+            tagCenterXPublisher.set(value = 0)
+            tagCenterYPublisher.set(value = 0)
         else:
             translationXPublisher.set(value = out[0])
             translationYPublisher.set(value = out[1])
@@ -225,11 +212,8 @@ def main():
         if out != []:
 
             largest = -1
-
             for i in range(len(out)):
-            
                 if out[i]["confidence"] > 0.5:
-
                     if getArea(out[i]["corners"]) > (getArea(out[largest]["corners"]) if largest != -1 else 0):
 
                         largest = i
@@ -257,9 +241,9 @@ def main():
         obj_time_1 = time.time()
         t_1 = time.time()
         # print(1 / (t_1 - t_0), "iters/sec")
-        framerate.append(1 / (t_1 - t_0))
-        april_percent.append((april_time_1-april_time_0)/(t_1-t_0)*100)
-        object_percent.append((obj_time_1-obj_time_0)/(t_1-t_0)*100)
+        # framerate.append(1 / (t_1 - t_0))
+        # april_percent.append((april_time_1-april_time_0)/(t_1-t_0)*100)
+        # object_percent.append((obj_time_1-obj_time_0)/(t_1-t_0)*100)
 
 
         # print(sum(framerate) / len(framerate), "framerate")
@@ -271,10 +255,11 @@ def main():
         # if cv2.waitKey(1) & 0xFF == ord('q'):
             # break
 
-        processed1Video.write(processed1)
-        processed2Video.write(processed2)
+        # processed1Video.write(processed1)
+        # processed2Video.write(processed2)
 
         cameraSelected = cameraSelectionSubscriber.get(defaultValue=0) % 2
+        # cameraSelected = 1
         outputSource.putFrame(processed1 if cameraSelected == 0 else processed2)
         # outputSource.putFrame(raw2)
 
